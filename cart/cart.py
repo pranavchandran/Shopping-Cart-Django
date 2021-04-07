@@ -12,6 +12,29 @@ class Cart(object):
             cart = self.session[settings.CART_SESSION_ID] = {}
         self.cart = cart
 
+    def __iter__(self):
+        """
+        Iterate over the items in the cart and get the products from the database
+        """
+        Product_ids = self.cart.keys()
+        # get the product objects and add them to the cart
+        products = Product.objects.filter(id__in=Product_ids)
+        cart = self.cart.copy()
+        for product in products:
+            cart[str(product.id)]['product']=product
+
+        for item in cart.values():
+            item['price'] = Decimal(item['price'])
+            item['total_price'] = item['price'] * item['quantity']
+            yield item
+
+    # For returning length
+    def __len__(self):
+        """
+        Count all items in the cart
+        """
+        return sum(item['quantity'] for item in self.cart.values())
+
     # Adding Products
     def add(self, product, quantity=1, override_quantity=False):
         """
@@ -42,7 +65,15 @@ class Cart(object):
         # mark the session as "modified to make sure it gets saved"
         self.session.modified = True
 
+    # calculate the total cost
+    def get_total_price(self):
+        return sum(Decimal(item['price']) * item['quantity'] for item in self.cart.values())
 
+    # clear the cart session
+    def clear(self):
+        # remove cart from session
+        del self.session[settings.CART_SESSION_ID]
+        self.save()
 
 
 
